@@ -7,8 +7,18 @@ import json
 from web3 import Web3
 import pandas as pd
 from decouple import config
+from datetime import datetime
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from models import EdenBlock, Base
 
 INFURA_ENDPOINT = config('INFURA_ENDPOINT')
+
+engine = create_engine('sqlite:///eden.db')
+Base.metadata.bind = engine
+DBSession = sessionmaker(bind=engine)
 
 def get_latest_eth_block():
     infura_endpoint = INFURA_ENDPOINT
@@ -21,6 +31,7 @@ def eden_block_call():
     last_block = 0
     last_block_current = get_latest_eth_block()
     eden_blocks_df = pd.DataFrame()
+    session = DBSession()
     while True:
         query = """
         query MyQuery($number_gte: BigInt!) {
@@ -40,7 +51,6 @@ def eden_block_call():
             transactionsRoot
             totalDifficulty
             number
-            fromActiveProducer
           }
         }
         """
@@ -55,8 +65,28 @@ def eden_block_call():
         if last_block >= last_block_current:
             break
     eden_blocks_df = eden_blocks_df.drop_duplicates()
-    eden_blocks_df = eden_blocks_df.set_index('number')
-    eden_blocks_df = eden_blocks_df.sort_index()
+    #eden_blocks_df = eden_blocks_df.set_index('number')
+    #eden_blocks_df = eden_blocks_df.sort_index()
+    for index, row in eden_blocks_df.iterrows():
+        eden_block_entry = EdenBlock(
+            id = row['id'],
+            author = row['author'],
+            difficulty = row['difficulty'],
+            gas_limit = row['gasLimit'],
+            gas_used = row['gasUsed'],
+            block_hash = row['hash'],
+            block_number = row['number'],
+            parent_hash = row['parentHash'],
+            uncle_hash = row['unclesHash'],
+            size = row['size'],
+            state_root = row['stateRoot'],
+            timestamp = datetime.fromtimestamp(int(row['timestamp'])),
+            total_difficulty = row['totalDifficulty'],
+            transactions_root = row['transactionsRoot'],
+            receipts_root = row['receiptsRoot']
+        )
+        session.add(eden_block_entry)
+        session.commit()
     eden_blocks_df.to_csv('/Users/yazkhoury/Desktop/Github/Flashbots/Eden/eden-scraper/eden.csv')
 
 eden_block_call()
