@@ -1,0 +1,19 @@
+ query MyQuery($number_gte: BigInt!) {
+   blocks(first:1000, where: {fromActiveProducer: true, number_gt: $number_gte}, orderBy: number, orderDirection: asc) {
+     author
+     difficulty
+     gasLimit
+     gasUsed
+     hash
+     id
+     parentHash
+     receiptsRoot
+     size
+     stateRoot
+     timestamp
+     unclesHash
+     transactionsRoot
+     totalDifficulty
+     number
+   }
+ }

@@ -8,6 +8,7 @@ from web3 import Web3
 import pandas as pd
 from decouple import config
 from datetime import datetime
+import logging
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -20,40 +21,40 @@ engine = create_engine('sqlite:///eden.db')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 
-def get_latest_eth_block():
+def get_web3_provider():
     infura_endpoint = INFURA_ENDPOINT
     my_provider = Web3.HTTPProvider(infura_endpoint)
     w3 = Web3(my_provider)
-    block = w3.eth.get_block('latest')
-    return block['number']
+    return w3
+
+def get_latest_eth_block():
+    eden_db_last_block = session.query(EdenBlock).filter(EdenBlock.block_number).order_by(desc(EdenBlock.block_number)).limit(1).all
+    w3 = get_web3_provider()
+    latest_eth_block = w3.eth.get_block('latest')['number']
+    if latest_eth_block > eden_db_last_block:
+        return latest_eth_block
+    else:
+        return None
+
+query_dict = {
+    'block': 'block.graphql'
+}
+
+def fetch_query(query):
+    query_file = query_dict.get(query)
+    with open(query_file, 'r') as file:
+        data = file.read()
+        return data
 
 def eden_block_call():
     last_block = 0
     last_block_current = get_latest_eth_block()
+    if last_block_current is None:
+        return
     eden_blocks_df = pd.DataFrame()
     session = DBSession()
     while True:
-        query = """
-        query MyQuery($number_gte: BigInt!) {
-          blocks(first:1000, where: {fromActiveProducer: true, number_gt: $number_gte}, orderBy: number, orderDirection: asc) {
-            author
-            difficulty
-            gasLimit
-            gasUsed
-            hash
-            id
-            parentHash
-            receiptsRoot
-            size
-            stateRoot
-            timestamp
-            unclesHash
-            transactionsRoot
-            totalDifficulty
-            number
-          }
-        }
-        """
+        query = fetch_query('block')
         print(last_block)
         variables = {"number_gte": last_block}
         url = 'https://api.thegraph.com/subgraphs/name/eden-network/governance'
@@ -65,28 +66,30 @@ def eden_block_call():
         if last_block >= last_block_current:
             break
     eden_blocks_df = eden_blocks_df.drop_duplicates()
-    #eden_blocks_df = eden_blocks_df.set_index('number')
-    #eden_blocks_df = eden_blocks_df.sort_index()
+    logging.info('Eden Blocks Pulled To DataFrame')
+    logging.info('Adding Eden Blocks To Database Now')
     for index, row in eden_blocks_df.iterrows():
-        eden_block_entry = EdenBlock(
-            id = row['id'],
-            author = row['author'],
-            difficulty = row['difficulty'],
-            gas_limit = row['gasLimit'],
-            gas_used = row['gasUsed'],
-            block_hash = row['hash'],
-            block_number = row['number'],
-            parent_hash = row['parentHash'],
-            uncle_hash = row['unclesHash'],
-            size = row['size'],
-            state_root = row['stateRoot'],
-            timestamp = datetime.fromtimestamp(int(row['timestamp'])),
-            total_difficulty = row['totalDifficulty'],
-            transactions_root = row['transactionsRoot'],
-            receipts_root = row['receiptsRoot']
-        )
-        session.add(eden_block_entry)
-        session.commit()
-    eden_blocks_df.to_csv('/Users/yazkhoury/Desktop/Github/Flashbots/Eden/eden-scraper/eden.csv')
+        block_id_query = session.query(EdenBlock).filter(EdenBlock.id==row['id']) or None
+        if block_id_query is None:
+            eden_block_entry = EdenBlock(
+                id = row['id'],
+                author = row['author'],
+                difficulty = row['difficulty'],
+                gas_limit = row['gasLimit'],
+                gas_used = row['gasUsed'],
+                block_hash = row['hash'],
+                block_number = row['number'],
+                parent_hash = row['parentHash'],
+                uncle_hash = row['unclesHash'],
+                size = row['size'],
+                state_root = row['stateRoot'],
+                timestamp = datetime.fromtimestamp(int(row['timestamp'])),
+                total_difficulty = row['totalDifficulty'],
+                transactions_root = row['transactionsRoot'],
+                receipts_root = row['receiptsRoot']
+            )
+            session.add(eden_block_entry)
+            session.commit()
+    logging.info('Eden Blocks Added To Database Now')
 
 eden_block_call()
