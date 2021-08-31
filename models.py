@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, DateTime, create_engine
+from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, DateTime, Float, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
 Base = declarative_base()
 
@@ -26,6 +27,16 @@ class EdenBlock(Base):
     total_difficulty = Column(Integer)
     transactions_root = Column(String(100))
     receipts_root = Column(String(100))
+
+class Epoch(Base):
+    __tablename__ = 'epochs'
+    id = Column(String(100), primary_key=True)
+    finalized = Column(Boolean)
+    start_block = Column(String(100))
+    end_block = Column(String(100))
+    producer_blocks = Column(Integer)
+    all_blocks = Column(Integer)
+    producer_blocks_ratio = Column(Float)
 
 engine = create_engine('sqlite:///eden.db')
 Base.metadata.create_all(engine)

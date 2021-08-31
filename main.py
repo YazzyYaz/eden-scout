@@ -13,7 +13,7 @@ import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from models import EdenBlock, Base
+from models import EdenBlock, Epoch, Base
 
 INFURA_ENDPOINT = config('INFURA_ENDPOINT')
 
@@ -37,7 +37,8 @@ def get_latest_eth_block():
         return None
 
 query_dict = {
-    'block': 'block.graphql'
+    'block': 'block.graphql',
+    'epoch': 'epoch.graphql'
 }
 
 def fetch_query(query):
@@ -92,4 +93,30 @@ def eden_block_call():
             session.commit()
     logging.info('Eden Blocks Added To Database Now')
 
-eden_block_call()
+def eden_epoch_call():
+    eden_epochs_df = pd.DataFrame()
+    session = DBSession()
+    query = fetch_query('epoch')
+    url = 'https://api.thegraph.com/subgraphs/name/eden-network/governance'
+    r = requests.post(url, json={'query': query})
+    epoch_result = r.json()
+    print(epoch_result)
+    eden_epochs_df = pd.DataFrame.from_dict(epoch_result['data']['epoches'])
+    logging.info('Eden Epochs Pulled To DataFrame')
+    logging.info('Adding Eden Epochs To Database Now')
+    for index, row in eden_epochs_df.iterrows():
+        epoch_id_query = session.query(Epoch).filter(Epoch.id==row['id']).all() or None
+        if epoch_id_query is None and row['finalized'] == True:
+            epoch_entry = Epoch(
+                id = row['id'],
+                finalized = row['finalized'],
+                start_block = row['startBlock']['id'],
+                end_block = row['endBlock']['id'],
+                producer_blocks = row['producerBlocks'],
+                all_blocks = row['allBlocks'],
+                producer_blocks_ratio = row['producerBlocksRatio']
+            )
+            session.add(epoch_entry)
+            session.commit()
+
+eden_epoch_call()

@@ -1,0 +1,18 @@
+{
+ 	epoches{
+		id
+  	finalized
+  	startBlock {
+    	id
+  	}
+		endBlock {
+			id
+		}
+		producerBlocks
+		allBlocks
+		producerBlocksRatio
+		producerRewards {
+			id
+		}
+	} 
+}
