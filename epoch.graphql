@@ -13,6 +13,13 @@
 		producerBlocksRatio
 		producerRewards {
 			id
+      address
+      epoch {
+        id
+      }
+      totalRewards
+      blocksProduced
+      blocksProducedRatio
 		}
 	} 
 }

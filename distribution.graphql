@@ -1,0 +1,10 @@
+query MyQuery($number_gt: BigInt!){
+  distributions(first:1000, where: {distributionNumber_gt: $number_gt}) {
+    id
+    timestamp
+    distributor
+    distributionNumber
+    merkleRoot
+    metadataURI
+  }
+}

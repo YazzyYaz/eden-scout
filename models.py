@@ -5,7 +5,7 @@ import sys
 from sqlalchemy import Column, ForeignKey, Integer, String, Boolean, DateTime, Float, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, BYTEA
 
 Base = declarative_base()
 
@@ -32,11 +32,30 @@ class Epoch(Base):
     __tablename__ = 'epochs'
     id = Column(String(100), primary_key=True)
     finalized = Column(Boolean)
+    epoch_number = Column(Integer)
     start_block = Column(String(100))
     end_block = Column(String(100))
     producer_blocks = Column(Integer)
     all_blocks = Column(Integer)
     producer_blocks_ratio = Column(Float)
+
+class Distribution(Base):
+    __tablename__ = 'distribution'
+    id = Column(String(100), primary_key=True)
+    distribution_number = Column(Integer)
+    distributor = Column(String(100))
+    timestamp = Column(DateTime)
+    merkle_root = Column(BYTEA)
+    metadata_url = Column(String(100))
+    epoch_number = Column(Integer)
+    token_total = Column(BYTEA)
+
+class DistributionBalance(Base):
+    __tablename__ = 'distribution_balance'
+    id = Column(String(100), primary_key=True)
+    index = Column(Integer)
+    distribution_number = Column(Integer)
+    amount = Column(String(100))
 
 engine = create_engine('sqlite:///eden.db')
 Base.metadata.create_all(engine)
