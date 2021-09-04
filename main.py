@@ -17,8 +17,10 @@ from sqlalchemy.orm import sessionmaker
 from models import EdenBlock, Epoch, Base, Distribution, DistributionBalance
 
 INFURA_ENDPOINT = config('INFURA_ENDPOINT')
+PSQL_ENDPOINT = config('PSQL_ENDPOINT')
 
-engine = create_engine('sqlite:///eden.db')
+engine = create_engine(PSQL_ENDPOINT)
+#engine = create_engine('sqlite:///eden.db')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
