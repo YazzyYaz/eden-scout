@@ -9,8 +9,9 @@ import pandas as pd
 from decouple import config
 from datetime import datetime
 import logging
+from collections import defaultdict
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 
 from models import EdenBlock, Epoch, Base, Distribution, DistributionBalance
@@ -20,6 +21,16 @@ INFURA_ENDPOINT = config('INFURA_ENDPOINT')
 engine = create_engine('sqlite:///eden.db')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
+session = DBSession()
+
+
+def query_to_dict(rset):
+    result = defaultdict(list)
+    for obj in rset:
+        instance = inspect(obj)
+        for key, x in instance.attrs.items():
+            result[key].append(x.value)
+    return result
 
 def get_web3_provider():
     infura_endpoint = INFURA_ENDPOINT
@@ -28,17 +39,24 @@ def get_web3_provider():
     return w3
 
 def get_latest_eth_block():
-    eden_db_last_block = session.query(EdenBlock).filter(EdenBlock.block_number).order_by(desc(EdenBlock.block_number)).limit(1).all
-    w3 = get_web3_provider()
-    latest_eth_block = w3.eth.get_block('latest')['number']
-    if latest_eth_block > eden_db_last_block:
-        return latest_eth_block
-    else:
-        return None
+	eden_db_last_block = session.query(EdenBlock).filter(EdenBlock.block_number).order_by(desc(EdenBlock.block_number)).limit(1).all()
+	eden_db_last_block = eden_db_last_block[0].block_number
+	w3 = get_web3_provider()
+	latest_eth_block = w3.eth.get_block('latest')['number']
+	if eden_db_last_block == []:
+		eden_db_last_block = 0
+	if latest_eth_block > eden_db_last_block:
+		return latest_eth_block
+	else:
+		return None
 
 def get_latest_distribution_number():
-    eden_db_last_number = session.query(Distribution).filter(Distribution.number).order_by(desc(Distribution.numer)).limit(1).all
-    return eden_db_last_number
+    eden_db_last_number_query = session.query(Distribution).filter(Distribution.distribution_number).order_by(desc(Distribution.distribution_number)).limit(1).all()
+    if eden_db_last_number_query != []:
+        eden_last_number = eden_db_last_number_query[0].distribution_number
+        return eden_last_number
+    else:
+        return 0
 
 query_dict = {
     'block': 'block.graphql',
@@ -71,10 +89,7 @@ def fetch_query(query):
 def eden_block_call():
     last_block = 0
     last_block_current = get_latest_eth_block()
-    if last_block_current is None:
-        return
     eden_blocks_df = pd.DataFrame()
-    session = DBSession()
     while True:
         query = fetch_query('block')
         variables = {'number_gt': last_block}
@@ -88,7 +103,7 @@ def eden_block_call():
     logging.info('Eden Blocks Pulled To DataFrame')
     logging.info('Adding Eden Blocks To Database Now')
     for index, row in eden_blocks_df.iterrows():
-        block_id_query = session.query(EdenBlock).filter(EdenBlock.id==row['id']) or None
+        block_id_query = session.query(EdenBlock).filter(EdenBlock.id==row['id']).limit(1).all() or None
         if block_id_query is None:
             eden_block_entry = EdenBlock(
                 id = row['id'],
@@ -145,7 +160,7 @@ def eden_distribution_call():
     variables = {'number_gt': distribution_number}
     distribution_result = graph_query_call(eden_distribution_api, query, variables)
     distribution_df = pd.DataFrame.from_dict(distribution_result['data']['distributions'])
-    distribution_df['final_metadata_url'] = df.apply(lambda row: ipfs_link_cleanup(row['metadataURI']) )
+    distribution_df['final_metadata_url'] = distribution_df['metadataURI'].apply(lambda row: ipfs_link_cleanup(row) )
     logging.info('Eden Distribution Pulled To DataFrame')
     logging.info('Adding Eden Distribution To Database Now')
     for index, row in distribution_df.iterrows():
@@ -155,24 +170,26 @@ def eden_distribution_call():
             distribution_entry = Distribution(
                 id = row['id'],
                 distribution_number = row['distributionNumber'],
-                distributor = row['distributor'],
+                distributor = str(row['distributor']),
                 timestamp = datetime.fromtimestamp(int(row['timestamp'])),
                 merkle_root = row['merkleRoot'],
-                metadata_uri = row['final_metadata_url'],
+                metadata_url = row['final_metadata_url'],
                 epoch_number = ipfs_json['epoch']
             )
             session.add(distribution_entry)
             session.commit()
-            for key, value in ipfs_json['balances'].iterrows():
+            for key, value in ipfs_json['balances'].items():
                 distribution_balance_entry = DistributionBalance(
-                    id = key,
-                    index = value['index'],
-                    distribution_number = row['distributionNumber'],
-                    amount = value['amount']
+                    miner = key,
+                    balance_index = value['index'],
+                    distribution_number = int(row['distributionNumber']),
+                    amount = value['amount'],
+                    epoch_number = ipfs_json['epoch']
                 )
                 session.add(distribution_balance_entry)
                 session.commit()
     logging.info('Eden Distribution Added to the Database')
 
+#eden_block_call()
 #eden_epoch_call()
 eden_distribution_call()

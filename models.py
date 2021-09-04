@@ -45,17 +45,19 @@ class Distribution(Base):
     distribution_number = Column(Integer)
     distributor = Column(String(100))
     timestamp = Column(DateTime)
-    merkle_root = Column(BYTEA)
+    merkle_root = Column(String(100))
     metadata_url = Column(String(100))
     epoch_number = Column(Integer)
-    token_total = Column(BYTEA)
+    token_total = Column(String(100))
 
 class DistributionBalance(Base):
     __tablename__ = 'distribution_balance'
-    id = Column(String(100), primary_key=True)
-    index = Column(Integer)
+    id = Column(Integer, primary_key=True)
+    miner = Column(String(100))
+    balance_index = Column(Integer)
     distribution_number = Column(Integer)
     amount = Column(String(100))
+    epoch_number = Column(Integer)
 
 engine = create_engine('sqlite:///eden.db')
 Base.metadata.create_all(engine)
