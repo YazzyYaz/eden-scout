@@ -40,7 +40,8 @@ def get_web3_provider():
 
 def get_latest_eth_block():
 	eden_db_last_block = session.query(EdenBlock).filter(EdenBlock.block_number).order_by(desc(EdenBlock.block_number)).limit(1).all()
-	eden_db_last_block = eden_db_last_block[0].block_number
+	if eden_db_last_block != []:
+		eden_db_last_block = eden_db_last_block[0].block_number
 	w3 = get_web3_provider()
 	latest_eth_block = w3.eth.get_block('latest')['number']
 	if eden_db_last_block == []:
@@ -128,14 +129,13 @@ def eden_block_call():
 
 def eden_epoch_call():
     eden_epochs_df = pd.DataFrame()
-    session = DBSession()
     query = fetch_query('epoch')
     epoch_result = graph_query_call(eden_governance_api, query)
     eden_epochs_df = pd.DataFrame.from_dict(epoch_result['data']['epoches'])
     logging.info('Eden Epochs Pulled To DataFrame')
     logging.info('Adding Eden Epochs To Database Now')
     for index, row in eden_epochs_df.iterrows():
-        epoch_id_query = session.query(Epoch).filter(Epoch.id==row['id']).all() or None
+        epoch_id_query = session.query(Epoch).filter(Epoch.id==row['id']).limit(1).all() or None
         if epoch_id_query is None and row['finalized'] == True:
             epoch_entry = Epoch(
                 id = row['id'],
@@ -190,6 +190,6 @@ def eden_distribution_call():
                 session.commit()
     logging.info('Eden Distribution Added to the Database')
 
-#eden_block_call()
-#eden_epoch_call()
+eden_block_call()
+eden_epoch_call()
 eden_distribution_call()
