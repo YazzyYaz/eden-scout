@@ -60,7 +60,6 @@ class DistributionBalance(Base):
     amount = Column(String(100))
     epoch_number = Column(Integer)
 
-#engine = create_engine('sqlite:///eden.db')
 PSQL_ENDPOINT = config('PSQL_ENDPOINT')
 engine = create_engine(PSQL_ENDPOINT)
 Base.metadata.create_all(engine)

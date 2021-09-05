@@ -20,7 +20,6 @@ INFURA_ENDPOINT = config('INFURA_ENDPOINT')
 PSQL_ENDPOINT = config('PSQL_ENDPOINT')
 
 engine = create_engine(PSQL_ENDPOINT)
-#engine = create_engine('sqlite:///eden.db')
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
@@ -54,7 +53,7 @@ def get_latest_eth_block():
 		return None
 
 def get_latest_distribution_number():
-    eden_db_last_number_query = session.query(Distribution).filter(Distribution.distribution_number).order_by(desc(Distribution.distribution_number)).limit(1).all()
+    eden_db_last_number_query = session.query(Distribution).order_by(desc(Distribution.distribution_number)).limit(1).all()
     if eden_db_last_number_query != []:
         eden_last_number = eden_db_last_number_query[0].distribution_number
         return eden_last_number
