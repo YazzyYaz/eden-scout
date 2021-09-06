@@ -12,13 +12,13 @@ Base = declarative_base()
 
 class EdenBlock(Base):
     __tablename__ = 'eden_block'
-    id = Column(String(100), primary_key=True)
+    block_number = Column(BigInteger, primary_key=True)
+    id = Column(String(100))
     author = Column(String(100))
     difficulty = Column(String(100))
     gas_limit = Column(BigInteger)
     gas_used = Column(BigInteger)
     block_hash = Column(String(100))
-    block_number = Column(String(100))
     from_active_producer = Column(Boolean)
     parent_hash = Column(String(100))
     uncle_hash = Column(String(100))
