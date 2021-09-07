@@ -52,6 +52,10 @@ def get_latest_eth_block():
 	else:
 		return None
 
+def clean_epoch_entry(epoch_string):
+    epoch_number = int(epoch_string.split('+')[1].replace('epoch', ''))
+    return epoch_number
+
 def get_latest_distribution_number():
     eden_db_last_number_query = session.query(Distribution).order_by(desc(Distribution.distribution_number)).limit(1).all()
     if eden_db_last_number_query != []:
@@ -138,9 +142,11 @@ def eden_epoch_call():
     for index, row in eden_epochs_df.iterrows():
         epoch_id_query = session.query(Epoch).filter(Epoch.id==row['id']).limit(1).all() or None
         if epoch_id_query is None and row['finalized'] == True:
+            epoch = clean_epoch_entry(row['id'])
             epoch_entry = Epoch(
                 id = row['id'],
                 finalized = row['finalized'],
+                epoch_number = epoch,
                 start_block = row['startBlock']['id'],
                 end_block = row['endBlock']['id'],
                 producer_blocks = row['producerBlocks'],
