@@ -1,0 +1,25 @@
+{
+  epoches(where: {finalized: false}){
+    id
+    finalized
+    startBlock {
+      id
+    }
+    endBlock {
+      id
+    }
+    producerBlocks
+    allBlocks
+    producerBlocksRatio
+    producerRewards {
+      id
+      address
+      epoch {
+          id
+        }
+      totalRewards
+      blocksProduced
+      blocksProducedRatio
+    }
+  }
+}

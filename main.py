@@ -28,6 +28,7 @@ query_dict = {
     'block': 'block.graphql',
     'distribution': 'distribution.graphql',
     'block_lookup': 'block_lookup.graphql',
+    'epoch_latest': 'epoch_latest.graphql',
     'epoch': 'epoch.graphql'
 }
 
@@ -63,9 +64,7 @@ def get_latest_eth_block():
 		return None
 
 def clean_epoch_entry(epoch_string):
-    epoch_number = epoch_string.split('+')[1].replace('epoch', '')
-    if epoch_number == '':
-        epoch_number = 1
+    epoch_number = int(epoch_string.split('+')[1].replace('epoch', ''))
     return int(epoch_number)
 
 def get_latest_distribution_number():
@@ -99,8 +98,17 @@ def get_epoch_number(block_number):
         epoch_number = epoch_number_query[0].epoch_number
         return epoch_number
     else:
+        latest_epoch = get_latest_epoch()
         print(epoch_number_query)
-        return None
+        return latest_epoch
+
+def get_latest_epoch():
+    query = fetch_query('epoch_latest')
+    latest_epoch_result = graph_query_call(eden_governance_api, query)
+    latest_epoch_id = latest_epoch_result['data']['epoches'][0]['id']
+    latest_epoch_number = clean_epoch_entry(latest_epoch_id)
+    return latest_epoch_number
+
 
 def get_block_number_from_id(block_id):
     query = fetch_query('block_lookup')
@@ -144,7 +152,8 @@ def eden_block_call():
                 timestamp = datetime.fromtimestamp(int(row['timestamp'])),
                 total_difficulty = row['totalDifficulty'],
                 transactions_root = row['transactionsRoot'],
-                receipts_root = row['receiptsRoot']
+                receipts_root = row['receiptsRoot'],
+                epoch_number = epoch_number
             )
             session.add(eden_block_entry)
             session.commit()

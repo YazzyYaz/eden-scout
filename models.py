@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from sqlalchemy import Column, ForeignKey, BigInteger, String, Boolean, DateTime, Float, create_engine
+from sqlalchemy import Column, ForeignKey, Integer, BigInteger, String, Boolean, DateTime, Float, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, BYTEA
@@ -28,6 +28,7 @@ class EdenBlock(Base):
     total_difficulty = Column(String(100))
     transactions_root = Column(String(100))
     receipts_root = Column(String(100))
+    epoch_number = Column(BigInteger)
 
 class Epoch(Base):
     __tablename__ = 'epochs'
@@ -55,7 +56,7 @@ class Distribution(Base):
 
 class DistributionBalance(Base):
     __tablename__ = 'distribution_balance'
-    id = Column(BigInteger, primary_key=True)
+    id = Column(Integer, primary_key=True)
     miner = Column(String(100))
     balance_index = Column(BigInteger)
     distribution_number = Column(BigInteger)
