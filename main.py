@@ -51,7 +51,7 @@ def get_web3_provider():
     return w3
 
 def get_latest_eth_block():
-	eden_db_last_block = session.query(EdenBlock).filter(EdenBlock.block_number).order_by(desc(EdenBlock.block_number)).limit(1).all()
+	eden_db_last_block = session.query(EdenBlock).order_by(desc(EdenBlock.block_number)).limit(1).all()
 	if eden_db_last_block != []:
 		eden_db_last_block = eden_db_last_block[0].block_number
 	w3 = get_web3_provider()
@@ -99,7 +99,6 @@ def get_epoch_number(block_number):
         return epoch_number
     else:
         latest_epoch = get_latest_epoch()
-        print(epoch_number_query)
         return latest_epoch
 
 def get_latest_epoch():
