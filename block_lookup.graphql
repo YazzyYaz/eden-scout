@@ -1,0 +1,5 @@
+query MyQuery($block_id: ID!) {
+  block(id: $block_id) {
+    number
+  }
+}

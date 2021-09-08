@@ -24,6 +24,16 @@ Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
 session = DBSession()
 
+query_dict = {
+    'block': 'block.graphql',
+    'distribution': 'distribution.graphql',
+    'block_lookup': 'block_lookup.graphql',
+    'epoch': 'epoch.graphql'
+}
+
+eden_governance_api = 'https://api.thegraph.com/subgraphs/name/eden-network/governance'
+eden_distribution_api = 'https://api.thegraph.com/subgraphs/name/eden-network/distribution'
+eden_network_api = 'https://api.thegraph.com/subgraphs/name/eden-network/network'
 
 def query_to_dict(rset):
     result = defaultdict(list)
@@ -53,8 +63,10 @@ def get_latest_eth_block():
 		return None
 
 def clean_epoch_entry(epoch_string):
-    epoch_number = int(epoch_string.split('+')[1].replace('epoch', ''))
-    return epoch_number
+    epoch_number = epoch_string.split('+')[1].replace('epoch', '')
+    if epoch_number == '':
+        epoch_number = 1
+    return int(epoch_number)
 
 def get_latest_distribution_number():
     eden_db_last_number_query = session.query(Distribution).order_by(desc(Distribution.distribution_number)).limit(1).all()
@@ -63,17 +75,6 @@ def get_latest_distribution_number():
         return eden_last_number
     else:
         return 0
-
-query_dict = {
-    'block': 'block.graphql',
-    'distribution': 'distribution.graphql',
-    'epoch': 'epoch.graphql'
-}
-
-eden_governance_api = 'https://api.thegraph.com/subgraphs/name/eden-network/governance'
-eden_distribution_api = 'https://api.thegraph.com/subgraphs/name/eden-network/distribution'
-eden_network_api = 'https://api.thegraph.com/subgraphs/name/eden-network/network'
-
 
 def ipfs_link_cleanup(raw_uri):
     final_ipfs_link = "https://ipfs.io/ipfs/" + raw_uri.split('//')[1]
@@ -91,6 +92,22 @@ def fetch_query(query):
     with open(query_file, 'r') as file:
         data = file.read()
         return data
+
+def get_epoch_number(block_number):
+    epoch_number_query = session.query(Epoch).filter(block_number >= Epoch.start_block_number, block_number <= Epoch.end_block_number).limit(1).all()
+    if epoch_number_query != []:
+        epoch_number = epoch_number_query[0].epoch_number
+        return epoch_number
+    else:
+        print(epoch_number_query)
+        return None
+
+def get_block_number_from_id(block_id):
+    query = fetch_query('block_lookup')
+    variables = {'block_id': block_id}
+    block_result = graph_query_call(eden_governance_api, query, variables)
+    eden_block_number = int(block_result['data']['block']['number'])
+    return eden_block_number
 
 def eden_block_call():
     last_block = 0
@@ -111,6 +128,7 @@ def eden_block_call():
     for index, row in eden_blocks_df.iterrows():
         block_id_query = session.query(EdenBlock).filter(EdenBlock.id==row['id']).limit(1).all() or None
         if block_id_query is None:
+            epoch_number = get_epoch_number(row['number'])
             eden_block_entry = EdenBlock(
                 id = row['id'],
                 author = row['author'],
@@ -143,11 +161,15 @@ def eden_epoch_call():
         epoch_id_query = session.query(Epoch).filter(Epoch.id==row['id']).limit(1).all() or None
         if epoch_id_query is None and row['finalized'] == True:
             epoch = clean_epoch_entry(row['id'])
+            start_block_number = get_block_number_from_id(row['startBlock']['id'])
+            end_block_number = get_block_number_from_id(row['endBlock']['id'])
             epoch_entry = Epoch(
                 id = row['id'],
                 finalized = row['finalized'],
                 epoch_number = epoch,
                 start_block = row['startBlock']['id'],
+                start_block_number = start_block_number,
+                end_block_number = end_block_number,
                 end_block = row['endBlock']['id'],
                 producer_blocks = row['producerBlocks'],
                 all_blocks = row['allBlocks'],
@@ -197,6 +219,7 @@ def eden_distribution_call():
                 session.commit()
     logging.info('Eden Distribution Added to the Database')
 
-eden_block_call()
+
 eden_epoch_call()
+eden_block_call()
 eden_distribution_call()
