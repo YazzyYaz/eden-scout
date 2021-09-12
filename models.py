@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from sqlalchemy import Column, ForeignKey, Integer, BigInteger, String, Boolean, DateTime, Float, create_engine
+from sqlalchemy import Column, ForeignKey, Integer, BigInteger, String, Boolean, DateTime, Float, create_engine, Numeric
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, BYTEA
@@ -60,7 +60,7 @@ class DistributionBalance(Base):
     miner = Column(String(100))
     balance_index = Column(BigInteger)
     distribution_number = Column(BigInteger)
-    amount = Column(String(100))
+    amount = Column(Numeric)
     epoch_number = Column(BigInteger)
 
 PSQL_ENDPOINT = config('PSQL_ENDPOINT')

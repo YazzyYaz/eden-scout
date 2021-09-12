@@ -220,7 +220,7 @@ def eden_distribution_call():
                     miner = key,
                     balance_index = value['index'],
                     distribution_number = int(row['distributionNumber']),
-                    amount = value['amount'],
+                    amount = int(value['amount'], 16),
                     epoch_number = ipfs_json['epoch']
                 )
                 session.add(distribution_balance_entry)
