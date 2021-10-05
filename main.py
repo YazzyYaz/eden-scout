@@ -10,11 +10,14 @@ from decouple import config
 from datetime import datetime
 import logging
 from collections import defaultdict
+import time
 
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker
 
 from models import EdenBlock, Epoch, Base, Distribution, DistributionBalance
+
+from apscheduler.schedulers.background import BackgroundScheduler
 
 INFURA_ENDPOINT = config('INFURA_ENDPOINT')
 PSQL_ENDPOINT = config('PSQL_ENDPOINT')
@@ -51,17 +54,21 @@ def get_web3_provider():
     return w3
 
 def get_latest_eth_block():
-	eden_db_last_block = session.query(EdenBlock).order_by(desc(EdenBlock.block_number)).limit(1).all()
-	if eden_db_last_block != []:
-		eden_db_last_block = eden_db_last_block[0].block_number
-	w3 = get_web3_provider()
-	latest_eth_block = w3.eth.get_block('latest')['number']
-	if eden_db_last_block == []:
-		eden_db_last_block = 0
-	if latest_eth_block > eden_db_last_block:
-		return latest_eth_block
-	else:
-		return None
+    eden_db_last_block = get_latest_eden_block_db()
+    w3 = get_web3_provider()
+    latest_eth_block = w3.eth.get_block('latest')['number']
+    if latest_eth_block > eden_db_last_block:
+        return latest_eth_block
+    else:
+        return None
+
+def get_latest_eden_block_db():
+    eden_db_last_block = session.query(EdenBlock).order_by(desc(EdenBlock.block_number)).limit(1).all()
+    if eden_db_last_block != []:
+        eden_db_last_block = eden_db_last_block[0].block_number
+    else:
+        eden_db_last_block = 0
+    return eden_db_last_block
 
 def clean_epoch_entry(epoch_string):
     epoch_number = int(epoch_string.split('+')[1].replace('epoch', ''))
@@ -108,7 +115,6 @@ def get_latest_epoch():
     latest_epoch_number = clean_epoch_entry(latest_epoch_id)
     return latest_epoch_number
 
-
 def get_block_number_from_id(block_id):
     query = fetch_query('block_lookup')
     variables = {'block_id': block_id}
@@ -132,6 +138,8 @@ def eden_block_call():
     eden_blocks_df = eden_blocks_df.drop_duplicates()
     logging.info('Eden Blocks Pulled To DataFrame')
     logging.info('Adding Eden Blocks To Database Now')
+    eden_last_block_db = get_latest_eden_block_db()
+    eden_blocks_df = eden_blocks_df[pd.to_numeric(eden_blocks_df['number']) >= eden_last_block_db]
     for index, row in eden_blocks_df.iterrows():
         block_id_query = session.query(EdenBlock).filter(EdenBlock.id==row['id']).limit(1).all() or None
         if block_id_query is None:
@@ -227,7 +235,16 @@ def eden_distribution_call():
                 session.commit()
     logging.info('Eden Distribution Added to the Database')
 
-
-eden_epoch_call()
-eden_block_call()
-eden_distribution_call()
+if __name__ == '__main__':
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(eden_epoch_call, 'interval', hours=24)
+    scheduler.add_job(eden_block_call, 'interval', hours=24)
+    scheduler.add_job(eden_distribution_call, 'interval', hours=24)
+    scheduler.start()
+    try:
+        # This is here to simulate application activity (which keeps the main thread alive).
+        while True:
+            time.sleep(2)
+    except (KeyboardInterrupt, SystemExit):
+       # Not strictly necessary if daemonic mode is enabled but should be done if possible
+        scheduler.shutdown()
